@@ -180,6 +180,10 @@ export const register: Register = on => {
           {open && Svg && (
             <Button key="in" label="+" dimColor={z === ZOOMS.length - 1} onPress={() => update($, zoom, (v: number) => Math.min(ZOOMS.length - 1, v + 1))} />
           )}
+          {open && (
+            // Re-reads the latest limits and redraws (record bumps `tick`).
+            <Button key="refresh" label="↻" dimColor onPress={() => record($)} />
+          )}
         </Box>
         {open && Svg && (
           <Svg
