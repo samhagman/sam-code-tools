@@ -28,3 +28,11 @@ A bundle entry can list several skill paths to install a set at once.
 | Plugin | Kind | What it does |
 |---|---|---|
 | usage-burn | mod | 1h / 5h usage band above the prompt; click for a 7-day burn-down with hover, zoom, resets and a 48h-weighted run-out projection |
+
+## Shipping an update
+
+1. Change the plugin.
+2. Bump `version` in its `.claude-plugin/plugin.json`. Installed copies are cached by version, so a push without a bump won't reach anyone.
+3. Commit and push.
+
+Other machines pick it up with `/plugin marketplace update sam-code-tools`, or automatically at startup once auto-update is turned on for this marketplace (`/plugin` → Marketplaces → sam-code-tools → Enable auto-update).
