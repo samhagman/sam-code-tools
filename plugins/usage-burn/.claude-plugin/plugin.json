@@ -1,6 +1,6 @@
 {
   "name": "usage-burn",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Account usage band above the prompt with a 7-day burn-down and run-out projection",
   "license": "MIT",
   "types": "./types/index.d.ts",

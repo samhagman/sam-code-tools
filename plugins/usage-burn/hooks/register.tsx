@@ -117,6 +117,18 @@ ${hovers}
 </svg>`
 }
 
+function compact(s: Sample[], now: number) {
+  const out: Sample[] = []
+  for (const p of s) {
+    if (p.t <= now - 8 * 24 * HOUR) continue
+    const last = out[out.length - 1]
+    const isOld = p.t < now - 24 * HOUR
+    if (isOld && last && Math.floor(last.t / SLOT) === Math.floor(p.t / SLOT)) out[out.length - 1] = p
+    else out.push(p)
+  }
+  return out
+}
+
 async function record($: EngineInterface) {
   const { rateLimits } = await $.session.usage()
   const h5 = pick(rateLimits, 'five_hour')
@@ -130,10 +142,11 @@ async function record($: EngineInterface) {
     d7: d7?.percentUsed ?? 0,
     r7: d7?.resetsAt ? Date.parse(d7.resetsAt) : undefined,
   }
-  // Same half-hour slot as the last sample: replace it, so we keep one point per 30 min.
+  // Recent history keeps every reading at least 5 min apart (a refresh adds a dot);
+  // anything older than 24h is thinned to the last reading of each half-hour slot.
   const prev = s[s.length - 1]
-  const same = prev && Math.floor(prev.t / SLOT) === Math.floor(now / SLOT)
-  const next = [...(same ? s.slice(0, -1) : s), sample].filter(p => p.t > now - 8 * 24 * HOUR)
+  const isTooClose = prev !== undefined && now - prev.t < 5 * 60_000
+  const next = compact([...(isTooClose ? s.slice(0, -1) : s), sample], now)
   await $.store.set('samples', next)
   await update($, tick, (n: number) => n + 1)
 }
