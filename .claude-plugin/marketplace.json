@@ -3,22 +3,25 @@
   "owner": {
     "name": "Sam Hagman"
   },
-  "description": "Sam's personal Claude Code mods and skills. Install only what each machine needs.",
+  "description": "Small Claude Code mods and skills, each its own plugin so you install only what you want.",
   "plugins": [
     {
       "name": "usage-burn",
       "source": "./plugins/usage-burn",
-      "description": "Account usage band above the prompt with a 7-day burn-down and run-out projection"
+      "description": "Account usage band above the prompt with a 7-day burn-down and run-out projection",
+      "license": "MIT",
+      "version": "0.2.1"
     },
     {
       "name": "update-sam-code-tools",
       "source": "./",
       "strict": false,
-      "version": "0.1.1",
+      "version": "0.1.2",
       "description": "Skill + script that pulls the latest sam-code-tools plugins into a running session",
       "skills": [
         "./skills/update-sam-code-tools"
-      ]
+      ],
+      "license": "MIT"
     }
   ]
 }

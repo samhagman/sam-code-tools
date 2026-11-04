@@ -1,1 +1,12 @@
-{ "name": "usage-burn", "version": "0.2.0", "description": "Account usage band above the prompt with a 7-day burn-down and run-out projection", "license": "MIT", "types": "./types/index.d.ts" }
+{
+  "name": "usage-burn",
+  "version": "0.2.1",
+  "description": "Account usage band above the prompt with a 7-day burn-down and run-out projection",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Sam Hagman",
+    "url": "https://github.com/samhagman"
+  },
+  "repository": "https://github.com/samhagman/sam-code-tools"
+}
