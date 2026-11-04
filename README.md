@@ -27,6 +27,7 @@ A bundle entry can list several skill paths to install a set at once.
 
 | Plugin | Kind | What it does |
 |---|---|---|
+| update-sam-code-tools | skill | Fetches and installs the latest sam-code-tools plugins mid-session; tells you when to `/reload-plugins` |
 | usage-burn | mod | 1h / 5h usage band above the prompt; click for a 7-day burn-down with hover, zoom, resets and a 48h-weighted run-out projection |
 
 ## Shipping an update
