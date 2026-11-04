@@ -7,7 +7,7 @@ type Sample = { t: number; h5: number; d7: number; r7?: number }
 const HOUR = 3_600_000
 const SLOT = HOUR / 2
 const isOpen = atom({ plugin: 'usage-burn', key: 'isOpen' } as const, false)
-const zoom = atom({ plugin: 'usage-burn', key: 'zoomLevel' } as const, 3)
+const zoom = atom({ plugin: 'usage-burn', key: 'zoomIdx' } as const, 4)
 const tick = atom({ plugin: 'usage-burn', key: 'tick' } as const, 0)
 
 const pick = (limits: SessionRateLimit[], kind: string) => limits.find(l => l.kind === kind)
@@ -38,15 +38,22 @@ function burnRate(s: Sample[], now: number) {
   return den > 0 ? num / den : 0
 }
 
-const ZOOMS = [168, 72, 24, 6] // hours of history shown, widest first
+const ZOOMS = [720, 168, 72, 24, 6] // hours of history shown, widest first
 
 function ticks(x0: number, x1: number, spanH: number) {
   const out: { t: number; label: string }[] = []
   if (spanH >= 48) {
     // Step by calendar day (setDate), so DST changes never duplicate a label.
     const d = new Date(x0); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + 1)
+    const every = spanH > 200 ? 5 : 1
     for (; d.getTime() < x1; d.setDate(d.getDate() + 1))
-      out.push({ t: d.getTime(), label: d.toLocaleDateString(undefined, { weekday: 'short' }) })
+      if (every === 1 || d.getDate() % every === 0)
+        out.push({
+          t: d.getTime(),
+          label: every === 1
+            ? d.toLocaleDateString(undefined, { weekday: 'short' })
+            : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        })
   } else {
     const step = spanH <= 6 ? 1 : 4
     const d = new Date(x0); d.setMinutes(0, 0, 0)
@@ -117,18 +124,6 @@ ${hovers}
 </svg>`
 }
 
-function compact(s: Sample[], now: number) {
-  const out: Sample[] = []
-  for (const p of s) {
-    if (p.t <= now - 8 * 24 * HOUR) continue
-    const last = out[out.length - 1]
-    const isOld = p.t < now - 24 * HOUR
-    if (isOld && last && Math.floor(last.t / SLOT) === Math.floor(p.t / SLOT)) out[out.length - 1] = p
-    else out.push(p)
-  }
-  return out
-}
-
 async function record($: EngineInterface) {
   const { rateLimits } = await $.session.usage()
   const h5 = pick(rateLimits, 'five_hour')
@@ -142,11 +137,8 @@ async function record($: EngineInterface) {
     d7: d7?.percentUsed ?? 0,
     r7: d7?.resetsAt ? Date.parse(d7.resetsAt) : undefined,
   }
-  // Recent history keeps every reading at least 5 min apart (a refresh adds a dot);
-  // anything older than 24h is thinned to the last reading of each half-hour slot.
-  const prev = s[s.length - 1]
-  const isTooClose = prev !== undefined && now - prev.t < 5 * 60_000
-  const next = compact([...(isTooClose ? s.slice(0, -1) : s), sample], now)
+  // Every reading is kept as-is (no merging or thinning) for 30 days.
+  const next = [...s, sample].filter(p => p.t > now - 30 * 24 * HOUR)
   await $.store.set('samples', next)
   await update($, tick, (n: number) => n + 1)
 }
