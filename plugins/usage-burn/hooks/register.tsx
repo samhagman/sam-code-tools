@@ -7,7 +7,7 @@ type Sample = { t: number; h5: number; d7: number; r7?: number }
 const HOUR = 3_600_000
 const SLOT = HOUR / 2
 const isOpen = atom({ plugin: 'usage-burn', key: 'isOpen' } as const, false)
-const zoom = atom({ plugin: 'usage-burn', key: 'zoom' } as const, 0)
+const zoom = atom({ plugin: 'usage-burn', key: 'zoomLevel' } as const, 3)
 const tick = atom({ plugin: 'usage-burn', key: 'tick' } as const, 0)
 
 const pick = (limits: SessionRateLimit[], kind: string) => limits.find(l => l.kind === kind)
@@ -162,7 +162,7 @@ export const register: Register = on => {
     const h1 = spent(s, 'h5', now - HOUR)
     const h5 = spent(s, 'h5', now - 5 * HOUR)
     const z = await read($, zoom)
-    const spanH = ZOOMS[z] ?? 168
+    const spanH = ZOOMS[z] ?? 6
     const spanTxt = spanH >= 24 ? `${spanH / 24}d` : `${spanH}h`
     return (
       <Box flexDirection="column">
@@ -173,11 +173,15 @@ export const register: Register = on => {
             </Text>
           </Button>
           {open && Svg && (
-            <Button key="out" onPress={() => update($, zoom, (v: number) => Math.max(0, v - 1))}>−</Button>
+            z > 0
+              ? <Button key="out" onPress={() => update($, zoom, (v: number) => Math.max(0, v - 1))}>−</Button>
+              : <Text key="out-off" dimColor>−</Text>
           )}
           {open && Svg && <Text dimColor>{spanTxt}</Text>}
           {open && Svg && (
-            <Button key="in" onPress={() => update($, zoom, (v: number) => Math.min(ZOOMS.length - 1, v + 1))}>+</Button>
+            z < ZOOMS.length - 1
+              ? <Button key="in" onPress={() => update($, zoom, (v: number) => Math.min(ZOOMS.length - 1, v + 1))}>+</Button>
+              : <Text key="in-off" dimColor>+</Text>
           )}
         </Box>
         {open && Svg && (
