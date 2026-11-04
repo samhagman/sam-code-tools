@@ -1,0 +1,12 @@
+{
+  "name": "sam-code-tools",
+  "owner": { "name": "Sam Hagman" },
+  "description": "Sam's personal Claude Code mods and skills. Install only what each machine needs.",
+  "plugins": [
+    {
+      "name": "usage-burn",
+      "source": "./plugins/usage-burn",
+      "description": "Account usage band above the prompt with a 7-day burn-down and run-out projection"
+    }
+  ]
+}
