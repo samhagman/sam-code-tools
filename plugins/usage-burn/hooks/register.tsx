@@ -174,15 +174,11 @@ export const register: Register = on => {
           </Button>
           {open && Svg && (
             // Always a Button so its width never changes; at the limit it's a dimmed no-op.
-            <Button key="out" onPress={() => update($, zoom, (v: number) => Math.max(0, v - 1))}>
-              <Text dimColor={z === 0}>−</Text>
-            </Button>
+            <Button key="out" label="−" dimColor={z === 0} onPress={() => update($, zoom, (v: number) => Math.max(0, v - 1))} />
           )}
           {open && Svg && <Text dimColor>{spanTxt}</Text>}
           {open && Svg && (
-            <Button key="in" onPress={() => update($, zoom, (v: number) => Math.min(ZOOMS.length - 1, v + 1))}>
-              <Text dimColor={z === ZOOMS.length - 1}>+</Text>
-            </Button>
+            <Button key="in" label="+" dimColor={z === ZOOMS.length - 1} onPress={() => update($, zoom, (v: number) => Math.min(ZOOMS.length - 1, v + 1))} />
           )}
         </Box>
         {open && Svg && (
