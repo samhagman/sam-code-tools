@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionRateLimit } from 'claude-code'
 
 // One sample per half hour: five-hour and weekly window % used, plus the weekly reset time.
-type Sample = { t: number; h5: number; d7: number; r7?: number }
+type Sample = { t: number; h5?: number; d7: number; r7?: number }
 
 const HOUR = 3_600_000
 const SLOT = HOUR / 2
@@ -17,8 +17,10 @@ function spent(s: Sample[], key: 'h5' | 'd7', from: number) {
   let sum = 0
   for (let i = 1; i < s.length; i++) {
     if (s[i]!.t <= from) continue
-    const d = s[i]![key] - s[i - 1]![key]
-    sum += d >= 0 ? d : s[i]![key]
+    const a = s[i - 1]![key], b = s[i]![key]
+    if (a === undefined || b === undefined) continue
+    const d = b - a
+    sum += d >= 0 ? d : b
   }
   return Math.round(sum * 10) / 10
 }
@@ -123,7 +125,7 @@ function chart(s: Sample[], now: number, spanH: number) {
 <g class="tip"><rect x="${tx}" y="${ty}" width="${tw}" height="40" rx="5" fill="#1e1e1e" stroke="#555"/>
 <text x="${tx + 8}" y="${ty + 13}" fill="#aaa">${when(p.t)}</text>
 <text x="${tx + 8}" y="${ty + 26}" fill="#eee"><tspan font-weight="600">${(100 - p.d7).toFixed(0)}%</tspan> weekly left</text>
-<text x="${tx + 8}" y="${ty + 36}" fill="#aaa" font-size="9">5h window ${p.h5.toFixed(0)}% used</text></g></g>`
+<text x="${tx + 8}" y="${ty + 36}" fill="#aaa" font-size="9">${p.h5 === undefined ? 'no 5h window reported' : `5h window ${p.h5.toFixed(0)}% used`}</text></g></g>`
   }).join('')
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" font-family="ui-sans-serif,system-ui" font-size="10">
 <style>.h .tip{opacity:0;transition:opacity .12s}.h:hover .tip{opacity:1}.h:hover .dot{r:4}</style>
@@ -149,7 +151,7 @@ async function record($: EngineInterface) {
   const s = ((await $.store.get('samples')) as Sample[] | undefined) ?? []
   const sample: Sample = {
     t: now,
-    h5: h5?.percentUsed ?? 0,
+    h5: h5?.percentUsed,
     d7: d7?.percentUsed ?? 0,
     r7: d7?.resetsAt ? Date.parse(d7.resetsAt) : undefined,
   }
@@ -180,8 +182,12 @@ export const register: Register = on => {
     const ui = $.ui.resolve(e) as ReturnType<typeof $.ui.resolve> & { Svg?: any }
     const { Box, Text, Button } = ui
     const Svg = ui.Svg
-    const h1 = spent(s, 'h5', now - HOUR)
-    const h5 = spent(s, 'h5', now - 5 * HOUR)
+    // Some accounts report no 5-hour window (or only ever 0%): then show weekly limit spent.
+    const has5h = s.some(p => p.t > now - 5 * HOUR && (p.h5 ?? 0) > 0)
+    const key = has5h ? 'h5' : 'd7'
+    const h1 = spent(s, key, now - HOUR)
+    const h5 = spent(s, key, now - 5 * HOUR)
+    const unit = has5h ? '' : ' of week'
     const p = projection(s, now)
     const etaBand = p.isWarmingUp ? '' : p.eta === Infinity ? ' · no burn' : ` · empty ≈ ${etaShort(p.eta)}`
     const z = await read($, zoom)
@@ -192,7 +198,7 @@ export const register: Register = on => {
         <Box flexDirection="row" gap={1}>
           <Button key="toggle" onPress={() => update($, isOpen, v => !v)}>
             <Text dimColor>
-              1h {h1}% · 5h {h5}%{etaBand} {open ? '▾' : '▸'}
+              1h {h1}% · 5h {h5}%{unit}{etaBand} {open ? '▾' : '▸'}
             </Text>
           </Button>
           {open && Svg && (
