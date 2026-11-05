@@ -83,7 +83,7 @@ const etaShort = (eta: number) =>
   new Date(eta).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })
 
 function chart(s: Sample[], now: number, spanH: number) {
-  const W = 560, H = 170, L = 30, R = 10, T = 14, B = 22
+  const W = 560, H = 184, L = 30, R = 10, T = 28, B = 22
   const x0 = now - spanH * HOUR
   const x1 = now + (spanH * HOUR * 2) / 7
   const last = s[s.length - 1]!
@@ -137,7 +137,7 @@ ${resets.map(p => `<line x1="${X(p.t)}" x2="${X(p.t)}" y1="${T}" y2="${Y(0)}" st
 ${nextReset ? `<line x1="${X(nextReset)}" x2="${X(nextReset)}" y1="${T}" y2="${Y(0)}" stroke="#4a9" stroke-dasharray="3 2" opacity=".6"/><text x="${X(nextReset) + 3}" y="${T + 8}" fill="#4a9">resets</text>` : ''}
 ${area ? `<polygon points="${area}" fill="url(#g)"/><polyline points="${line}" fill="none" stroke="#d97757" stroke-width="2" stroke-linejoin="round"/>` : ''}
 ${!isWarmingUp ? `<line x1="${X(now)}" y1="${Y(left)}" x2="${X(endT)}" y2="${Y(Math.max(0, endRem))}" stroke="#d97757" stroke-width="1.5" stroke-dasharray="5 4" opacity=".8"/>` : ''}
-<text x="${W - R}" y="${T - 3}" text-anchor="end" fill="#888">${left.toFixed(0)}% left &#183; ${etaTxt}</text>
+<text x="${W - R}" y="14" text-anchor="end" fill="#888">${left.toFixed(0)}% left &#183; ${etaTxt}</text>
 ${hovers}
 </svg>`
 }
@@ -214,6 +214,7 @@ export const register: Register = on => {
           )}
         </Box>
         {open && Svg && (
+          <Box marginTop={1}>
           <Svg
             key="chart"
             source={chart(s, now, spanH)}
@@ -221,6 +222,7 @@ export const register: Register = on => {
             width={560}
             isInteractive
           />
+          </Box>
         )}
         {open && !Svg && (
           <Text dimColor>{(100 - s[s.length - 1]!.d7).toFixed(0)}% weekly left (chart needs the desktop app)</Text>
