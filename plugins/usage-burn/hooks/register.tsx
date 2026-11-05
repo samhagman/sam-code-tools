@@ -187,7 +187,6 @@ export const register: Register = on => {
     const key = has5h ? 'h5' : 'd7'
     const h1 = spent(s, key, now - HOUR)
     const h5 = spent(s, key, now - 5 * HOUR)
-    const unit = has5h ? '' : ' of week'
     const p = projection(s, now)
     const etaBand = p.isWarmingUp ? '' : p.eta === Infinity ? ' · no burn' : ` · empty ≈ ${etaShort(p.eta)}`
     const z = await read($, zoom)
@@ -198,7 +197,7 @@ export const register: Register = on => {
         <Box flexDirection="row" gap={1}>
           <Button key="toggle" onPress={() => update($, isOpen, v => !v)}>
             <Text dimColor>
-              1h {h1}% · 5h {h5}%{unit}{etaBand} {open ? '▾' : '▸'}
+              1h {h1}% · 5h {h5}%{etaBand} {open ? '▾' : '▸'}
             </Text>
           </Button>
           {open && Svg && (
