@@ -93,7 +93,15 @@ function chart(s: Sample[], now: number, spanH: number) {
   const endT = Math.min(eta, x1)
   const endRem = left - rate * (endT - now)
   const nextReset = last.r7 && last.r7 < x1 ? last.r7 : undefined
-  const etaTxt = eta === Infinity ? 'no burn' : new Date(eta).toLocaleString(undefined, { weekday: 'short', hour: 'numeric' })
+  // How much history the 48h projection is based on.
+  const recent = s.filter(p => p.t > now - 48 * HOUR)
+  const basisH = recent.length > 1 ? (recent[recent.length - 1]!.t - recent[0]!.t) / HOUR : 0
+  const isWarmingUp = basisH < 3
+  const etaTxt = isWarmingUp
+    ? `projection after 3h of data (${basisH.toFixed(1)}h so far)`
+    : eta === Infinity
+      ? 'no burn in the last 48h'
+      : `empty &#8776; ${new Date(eta).toLocaleString(undefined, { weekday: 'short', hour: 'numeric' })}`
   const shown = pts.filter(p => p.t > x0 || p === s[firstIn])
   // Hover: each sample owns a vertical strip; hovering it reveals a guide line and a tooltip.
   const hovers = shown.map((p, i) => {
@@ -118,8 +126,8 @@ ${ticks(x0, x1, spanH).map(k => `<text x="${X(k.t)}" y="${H - 6}" text-anchor="m
 ${resets.map(p => `<line x1="${X(p.t)}" x2="${X(p.t)}" y1="${T}" y2="${Y(0)}" stroke="#4a9" stroke-dasharray="3 2"/><text x="${X(p.t) + 3}" y="${T + 8}" fill="#4a9">reset</text>`).join('')}
 ${nextReset ? `<line x1="${X(nextReset)}" x2="${X(nextReset)}" y1="${T}" y2="${Y(0)}" stroke="#4a9" stroke-dasharray="3 2" opacity=".6"/><text x="${X(nextReset) + 3}" y="${T + 8}" fill="#4a9">resets</text>` : ''}
 ${area ? `<polygon points="${area}" fill="url(#g)"/><polyline points="${line}" fill="none" stroke="#d97757" stroke-width="2" stroke-linejoin="round"/>` : ''}
-${rate > 0 ? `<line x1="${X(now)}" y1="${Y(left)}" x2="${X(endT)}" y2="${Y(Math.max(0, endRem))}" stroke="#d97757" stroke-width="1.5" stroke-dasharray="5 4" opacity=".8"/>` : ''}
-<text x="${W - R}" y="${T - 3}" text-anchor="end" fill="#888">${left.toFixed(0)}% left &#183; empty &#8776; ${etaTxt}</text>
+${!isWarmingUp ? `<line x1="${X(now)}" y1="${Y(left)}" x2="${X(endT)}" y2="${Y(Math.max(0, endRem))}" stroke="#d97757" stroke-width="1.5" stroke-dasharray="5 4" opacity=".8"/>` : ''}
+<text x="${W - R}" y="${T - 3}" text-anchor="end" fill="#888">${left.toFixed(0)}% left &#183; ${etaTxt}</text>
 ${hovers}
 </svg>`
 }
