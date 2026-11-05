@@ -67,14 +67,25 @@ function ticks(x0: number, x1: number, spanH: number) {
 const when = (t: number) =>
   new Date(t).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })
 
+// The 48h-weighted run-out projection, shared by the band and the chart.
+function projection(s: Sample[], now: number) {
+  const recent = s.filter(p => p.t > now - 48 * HOUR)
+  const basisH = recent.length > 1 ? (recent[recent.length - 1]!.t - recent[0]!.t) / HOUR : 0
+  const rate = burnRate(s, now)
+  const left = 100 - s[s.length - 1]!.d7
+  const eta = rate > 0 ? now + left / rate : Infinity
+  return { basisH, isWarmingUp: basisH < 3, rate, left, eta }
+}
+
+const etaShort = (eta: number) =>
+  new Date(eta).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })
+
 function chart(s: Sample[], now: number, spanH: number) {
   const W = 560, H = 170, L = 30, R = 10, T = 14, B = 22
   const x0 = now - spanH * HOUR
   const x1 = now + (spanH * HOUR * 2) / 7
   const last = s[s.length - 1]!
-  const rate = burnRate(s, now)
-  const left = 100 - last.d7
-  const eta = rate > 0 ? now + left / rate : Infinity
+  const { basisH, isWarmingUp, rate, left, eta } = projection(s, now)
   const X = (t: number) => L + ((t - x0) / (x1 - x0)) * (W - L - R)
   const Y = (rem: number) => T + (1 - rem / 100) * (H - T - B)
   // Keep the one sample just before the window so the line enters from the left edge.
@@ -94,14 +105,11 @@ function chart(s: Sample[], now: number, spanH: number) {
   const endRem = left - rate * (endT - now)
   const nextReset = last.r7 && last.r7 < x1 ? last.r7 : undefined
   // How much history the 48h projection is based on.
-  const recent = s.filter(p => p.t > now - 48 * HOUR)
-  const basisH = recent.length > 1 ? (recent[recent.length - 1]!.t - recent[0]!.t) / HOUR : 0
-  const isWarmingUp = basisH < 3
   const etaTxt = isWarmingUp
     ? `projection after 3h of data (${basisH.toFixed(1)}h so far)`
     : eta === Infinity
       ? 'no burn in the last 48h'
-      : `empty &#8776; ${new Date(eta).toLocaleString(undefined, { weekday: 'short', hour: 'numeric' })}`
+      : `empty &#8776; ${etaShort(eta)}`
   const shown = pts.filter(p => p.t > x0 || p === s[firstIn])
   // Hover: each sample owns a vertical strip; hovering it reveals a guide line and a tooltip.
   const hovers = shown.map((p, i) => {
@@ -174,6 +182,8 @@ export const register: Register = on => {
     const Svg = ui.Svg
     const h1 = spent(s, 'h5', now - HOUR)
     const h5 = spent(s, 'h5', now - 5 * HOUR)
+    const p = projection(s, now)
+    const etaBand = p.isWarmingUp ? '' : p.eta === Infinity ? ' · no burn' : ` · empty ≈ ${etaShort(p.eta)}`
     const z = await read($, zoom)
     const spanH = ZOOMS[z] ?? 6
     const spanTxt = spanH >= 24 ? `${spanH / 24}d` : `${spanH}h`
@@ -182,7 +192,7 @@ export const register: Register = on => {
         <Box flexDirection="row" gap={1}>
           <Button key="toggle" onPress={() => update($, isOpen, v => !v)}>
             <Text dimColor>
-              1h {h1}% · 5h {h5}% {open ? '▾' : '▸'}
+              1h {h1}% · 5h {h5}%{etaBand} {open ? '▾' : '▸'}
             </Text>
           </Button>
           {open && Svg && (
