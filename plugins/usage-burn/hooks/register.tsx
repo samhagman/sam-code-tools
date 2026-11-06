@@ -10,6 +10,7 @@ const isOpen = atom({ plugin: 'usage-burn', key: 'isOpen' } as const, false)
 const zoom = atom({ plugin: 'usage-burn', key: 'zoomIdx' } as const, 4)
 const tick = atom({ plugin: 'usage-burn', key: 'tick' } as const, 0)
 const selected = atom({ plugin: 'usage-burn', key: 'selectedT' } as const, 0)
+const hovered = atom({ plugin: 'usage-burn', key: 'hoverT' } as const, 0)
 
 const pick = (limits: SessionRateLimit[], kind: string) => limits.find(l => l.kind === kind)
 
@@ -124,7 +125,7 @@ function projection(s: Sample[], now: number) {
 const etaShort = (eta: number) =>
   new Date(eta).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })
 
-function chart(s: Sample[], now: number, spanH: number, selectedT: number) {
+function chart(s: Sample[], now: number, spanH: number, selectedT: number, hoverT: number) {
   const W = 560, H = 184, L = 30, R = 10, T = 28, B = 22
   const x0 = now - spanH * HOUR
   const x1 = now + (spanH * HOUR * 2) / 7
@@ -182,7 +183,7 @@ function chart(s: Sample[], now: number, spanH: number, selectedT: number) {
       ? `<circle class="dot" cx="${x}" cy="${y}" r="3" fill="none" stroke="#e5534b" stroke-width="1.5"/>`
       : `<circle class="dot" cx="${x}" cy="${y}" r="2.5" fill="#d97757"/>`
     const ring = p.t === selectedT ? `<circle cx="${x}" cy="${y}" r="6.5" fill="none" stroke="#fff" stroke-width="1.5"/>` : ''
-    return `<g class="h"><rect x="${xa}" y="${T}" width="${Math.max(1, xb - xa)}" height="${Y(0) - T}" fill="transparent"/>
+    return `<g class="h${p.t === hoverT ? ' on' : ''}"><rect x="${xa}" y="${T}" width="${Math.max(1, xb - xa)}" height="${Y(0) - T}" fill="transparent"/>
 <line class="tip" x1="${x}" x2="${x}" y1="${T}" y2="${Y(0)}" stroke="#d97757" stroke-opacity=".5"/>
 ${dot}${ring}
 <g class="tip"><rect x="${tx}" y="${ty}" width="${tw}" height="40" rx="5" fill="#1e1e1e" stroke="#555"/>
@@ -190,8 +191,9 @@ ${dot}${ring}
 <text x="${tx + 8}" y="${ty + 26}" fill="#eee"><tspan font-weight="600">${(100 - p.d7).toFixed(0)}%</tspan> weekly left</text>
 <text x="${tx + 8}" y="${ty + 36}" fill="#aaa" font-size="9">${p.h5 === undefined ? 'no 5h window reported' : `5h window ${p.h5.toFixed(0)}% used`}</text></g></g>`
   }).join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" font-family="ui-sans-serif,system-ui" font-size="10">
-<style>.h .tip{opacity:0;transition:opacity .12s}.h:hover .tip{opacity:1}.h:hover .dot{r:4}</style>
+  const dots = shown.map(j => [j.p.t, +(X(j.p.t) / W).toFixed(4), +(Y(100 - j.p.d7) / H).toFixed(4)] as [number, number, number])
+  return { dots, svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" font-family="ui-sans-serif,system-ui" font-size="10">
+<style>.h .tip{opacity:0;transition:opacity .12s}.h:hover .tip{opacity:1}.h:hover .dot{r:4}.h.on .tip{opacity:1}.h.on .dot{r:4}</style>
 <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d97757" stop-opacity=".35"/><stop offset="1" stop-color="#d97757" stop-opacity="0"/></linearGradient>
 <clipPath id="plot"><rect x="${L}" y="0" width="${W - L - R}" height="${H}"/></clipPath></defs>
 ${[0, 50, 100].map(v => `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#8884" stroke-dasharray="${v ? '2 3' : ''}"/><text x="${L - 4}" y="${Y(v) + 3}" text-anchor="end" fill="#888">${v}%</text>`).join('')}
@@ -205,7 +207,7 @@ ${!isWarmingUp ? `<line x1="${X(now)}" y1="${Y(left)}" x2="${X(endT)}" y2="${Y(M
 </g>
 <text x="${W - R}" y="14" text-anchor="end" fill="#888">${left.toFixed(0)}% left &#183; ${etaTxt}</text>
 ${hovers}
-</svg>`
+</svg>` }
 }
 
 async function record($: EngineInterface) {
@@ -247,6 +249,14 @@ export const register: Register = on => {
     return next(e)
   })
 
+  // The click layer over the chart reports hovers and clicks on dots.
+  on('ui.message', async ($, e, next) => {
+    const d = e.data as { pick?: number; hover?: number }
+    if (typeof d.pick === 'number') await update($, selected, () => d.pick!)
+    if (typeof d.hover === 'number') await update($, hovered, () => d.hover!)
+    return next(e)
+  })
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     await read($, tick)
     const s = ((await $.store.get('samples')) as Sample[] | undefined) ?? []
@@ -255,7 +265,7 @@ export const register: Register = on => {
     const open = await read($, isOpen)
     const ui = $.ui.resolve(e) as ReturnType<typeof $.ui.resolve> & { Svg?: any }
     const { Box, Text, Button } = ui
-    const Select = (ui as { Select?: any }).Select
+    const Client = (ui as { Client?: any }).Client
     const Svg = ui.Svg
     // Some accounts report no 5-hour window (or only ever 0%): then show weekly limit spent.
     const has5h = s.some(p => p.t > now - 5 * HOUR && (p.h5 ?? 0) > 0)
@@ -276,12 +286,11 @@ export const register: Register = on => {
     // Reading editor: the readings in view, newest first; flagged ones marked.
     const inView = judge(s).filter(j => j.p.t > now - spanH * HOUR).reverse().slice(0, 150)
     const flagged = judge(s).filter(j => j.isGlitch).map(j => j.p.t)
+    // Nothing is selected until a dot is clicked; ✕ clears it.
     const chosen = await read($, selected)
-    const selT = inView.some(j => j.p.t === chosen) ? chosen : (inView[0]?.p.t ?? 0)
-    const options = inView.map(j => ({
-      value: String(j.p.t),
-      label: `${when(j.p.t)} · ${j.p.d7}% used${j.isGlitch ? ' · ⚠ ignored' : ''}`,
-    }))
+    const sel = inView.find(j => j.p.t === chosen)
+    const selT = sel?.p.t ?? 0
+    const { svg, dots } = chart(s, now, spanH, selT, await read($, hovered))
     return (
       <Box flexDirection="column">
         <Box flexDirection="row" gap={1}>
@@ -304,35 +313,38 @@ export const register: Register = on => {
           )}
         </Box>
         {open && Svg && (
-          <Box marginTop={1}>
-          <Svg
-            key="chart"
-            source={chart(s, now, spanH, selT)}
-            alt={`Weekly usage remaining over the last ${spanTxt}, with resets and a projected run-out line`}
-            width={560}
-            isInteractive
-          />
+          <Box marginTop={1} position="relative">
+            <Svg
+              key="chart"
+              source={svg}
+              alt={`Weekly usage remaining over the last ${spanTxt}, with resets and a projected run-out line`}
+              width={560}
+              isInteractive
+            />
+            {/* Invisible click layer over the chart: the chart picture can't hear clicks. */}
+            {Client && <Box position="absolute" top={0} left={0} right={0} bottom={0}>
+              <Client key="picker" module="./picker.tsx" props={{ dots, w: 560, h: 184 }} width="100%" height="100%" />
+            </Box>}
           </Box>
         )}
-        {open && Svg && Select && options.length > 0 && (
+        {open && Svg && (sel || flagged.length > 0) && (
           <Box flexDirection="row" gap={1} marginTop={1}>
-            <Select
-              key="reading"
-              label="Reading"
-              options={options}
-              value={String(selT)}
-              onSelect={(v: string) => update($, selected, () => Number(v))}
-            />
-            <Button
-              key="delete"
-              label="Delete reading"
-              onPress={async () => {
-                const i = inView.findIndex(j => j.p.t === selT)
-                const neighbour = inView[i + 1] ?? inView[i - 1]
-                await remove($, [selT])
-                await update($, selected, () => neighbour?.p.t ?? 0)
-              }}
-            />
+            {sel && (
+              <Text>
+                {when(sel.p.t)} · {sel.p.d7}% used{sel.isGlitch ? ' · ⚠ ignored' : ''}
+              </Text>
+            )}
+            {sel && (
+              <Button
+                key="delete"
+                label="Delete reading"
+                onPress={async () => {
+                  await remove($, [selT])
+                  await update($, selected, () => 0)
+                }}
+              />
+            )}
+            {sel && <Button key="unselect" label="✕" dimColor onPress={() => update($, selected, () => 0)} />}
             {flagged.length > 0 && (
               <Button key="delete-flagged" label={`Delete ${flagged.length} flagged`} dimColor onPress={() => remove($, flagged)} />
             )}

@@ -1,6 +1,6 @@
 declare module 'claude-code' {
   interface PluginState {
-    'usage-burn': { isOpen: boolean; tick: number; zoomIdx: number; selectedT: number }
+    'usage-burn': { isOpen: boolean; tick: number; zoomIdx: number; selectedT: number; hoverT: number }
   }
 }
 export type UsageBurn = true
