@@ -14,7 +14,7 @@ Small [Claude Code](https://claude.com/claude-code) mods and skills. Each one is
 
 | Plugin | Kind | What it does |
 |---|---|---|
-| usage-burn | mod | A small band above the prompt: how much of your account usage you spent in the last 1h and 5h. Click it for a burn-down chart of your weekly limit (up to 30 days of raw readings) with hover, zoom, reset markers and a projection of when you'd run out at your recent (48h-weighted) pace. The chart needs the desktop app; the terminal shows text. |
+| usage-burn | mod | A small band above the prompt: how much of your account usage you spent in the last 1h and 5h. Click it for a burn-down chart of your weekly limit (up to 30 days of raw readings) with hover, zoom, reset markers and a projection of when you'd run out (7-day average, recent days weighted more; bad readings ignored). Pick any reading from the dropdown under the chart to delete it. The chart needs the desktop app; the terminal shows text. |
 | update-sam-code-tools | skill | Fetches and installs the latest versions of these plugins in a running session, then tells you to `/reload-plugins`. |
 
 ## Updates
